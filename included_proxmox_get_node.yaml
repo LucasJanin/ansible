@@ -1,0 +1,24 @@
+####################################################
+# Get proxmox node name from hostname
+####################################################
+  # vars defined in main playbook
+  #   dev_hostnames: ['debian', 'headscale', 'magicpi']
+  #   dev_proxmox: []
+####################################################
+
+    - name: Get the list of Container on the proxmox cluster 
+      # Get the list of containers and VMs on the proxmox cluster
+      shell: >
+        ansible proxmox -m shell -a '{ pct list; qm list; } | awk "NR==1 {next} {print \$0, \"host $(hostname)\"}"'
+      register: proxmox_output
+      ignore_errors: yes
+
+    - name: Find associated proxmox node for each dev_hostname
+      # Find the proxmox node associated with each dev_hostname
+      set_fact:
+        dev_proxmox: "{{ dev_proxmox + [proxmox_node | default('') | first | default('') ] }}"
+      vars:
+        proxmox_node: "{{ proxmox_output.stdout | regex_search(item + '.*host (\\S+)', '\\1') }}"
+      loop: "{{ dev_hostnames }}"
+      loop_control:
+        loop_var: item
