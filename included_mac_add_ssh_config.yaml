@@ -1,0 +1,38 @@
+---
+####################################################
+# Add new host entries in Mac's ssh config
+####################################################
+  # vars:
+  #   dev_hostnames: ['debian', 'headscale', 'magicpi']
+  #   dev_ips: ['192.168.1.152', '192.168.1.230', '192.168.1.203']
+  #   computer: fastroom
+  #   ssh_config: /Users/lucas/.ssh/config"
+####################################################
+
+- name: Remove previous host entries in "{{ computer }}" ssh config
+  delegate_to: "{{ computer }}"
+  shell: |
+    sed -i '' '/Host {{ item }}/,+2d' "{{ ssh_config }}"
+  args:
+    executable: /bin/bash
+  loop: "{{ dev_hostnames }}"
+  register: remove_computer_ssh_configs
+
+- name: Add new host entries in "{{ computer }}" ssh config
+  delegate_to: "{{ computer }}"
+  lineinfile:
+    path: "{{ssh_config}}"
+    line: |
+      Host {{ item.0 }}
+          HostName {{ item.1 }}
+          User root
+    create: yes
+  loop: "{{ dev_hostnames | zip(dev_ips) | list }}"
+  register: add_computer_ssh_configss
+
+- name: Remove multiple empty lines and replace them with a single one
+  delegate_to: "{{ computer }}"
+  replace:
+    path: "{{ssh_config}}"
+    regexp: '(\n\s*){3,}'
+    replace: '\n\n'
