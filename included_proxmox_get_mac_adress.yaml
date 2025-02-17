@@ -1,0 +1,50 @@
+---
+####################################################
+# Get the MAC address of a container running on a Proxmox cluster
+####################################################
+  #   dev_hostnames: ['debian', 'headscale', 'magicpi']
+  #   dev_types: ['lxc', 'vm','']
+  #   dev_ids: [122, 200,'']
+  #   dev_macaddresses: ['00:00:00:00:00:00','00:00:00:00:00:00', 'e4:5f:01:0c:8f:2e']
+  #   dev_proxmox: ['nab5', 'nab6','']
+####################################################
+
+    - name: Get MAC address for LXC
+      shell: >
+        ansible {{ item.2 }} -m shell -a "pct config {{ item.0 }} | grep -i 'net0:' | grep -oP 'hwaddr=\\K[^,]+'"
+      loop: "{{ dev_ids | zip(dev_types, dev_proxmox) | list }}"
+      when: item.1 == 'lxc'
+      register: lxc_mac_output
+
+    - name: Get MAC address for VM
+      shell: >
+        ansible {{ item.2 }} -m shell -a "qm config {{ item.0 }} | grep -i 'net0:' | grep -oP 'virtio=\\K[^,]+'"
+      loop: "{{ dev_ids | zip(dev_types, dev_proxmox) | list }}"
+      when: item.1 == 'vm'
+      register: vm_mac_output
+
+    - name: Replace LXC MAC addresses in dev_macaddresses
+      set_fact:
+        dev_macaddresses: >
+          {{
+            dev_macaddresses[:index | int] +
+            [item.stdout_lines[-1] | trim] +
+            dev_macaddresses[index | int + 1:]
+          }}
+      loop: "{{ lxc_mac_output.results }}"
+      vars:
+        index: "{{ dev_ids.index(item.item.0) }}"
+      when: item.stdout_lines is defined and item.stdout_lines[-1] is defined and item.stdout_lines[-1] != ""
+
+    - name: Replace VM MAC addresses in dev_macaddresses
+      set_fact:
+        dev_macaddresses: >
+          {{
+            dev_macaddresses[:index | int] +
+            [item.stdout_lines[-1] | trim] +
+            dev_macaddresses[index | int + 1:]
+          }}
+      loop: "{{ vm_mac_output.results }}"
+      vars:
+        index: "{{ dev_ids.index(item.item.0) }}"
+      when: item.stdout_lines is defined and item.stdout_lines[-1] is defined and item.stdout_lines[-1] != ""
