@@ -1,0 +1,21 @@
+---
+####################################################
+# Proxmox Reboot Container
+####################################################
+  # vars:
+  #   dev_types: ['lxc', 'vm','']
+  #   dev_ids: [122, 200,'']
+  #   dev_proxmox: ['nab5', 'nab6','']
+####################################################
+
+- name: Restart LXC Container
+  shell: "ansible {{ item.2 }} -m shell -a 'pct reboot {{ item.0 }}'"
+  loop: "{{ dev_ids | zip(dev_types, dev_proxmox) | list }}"
+  when: item.1 == 'lxc'
+  register: lxc_mac_output
+
+- name: Restart VM Container
+  shell: "ansible {{ item.2 }} -m shell -a 'qm reboot {{ item.0 }}'"
+  loop: "{{ dev_ids | zip(dev_types, dev_proxmox) | list }}"
+  when: item.1 == 'vm'
+  register: vm_mac_output
