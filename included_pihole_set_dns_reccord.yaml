@@ -1,0 +1,50 @@
+---
+####################################################
+# Pihole set DNS record
+####################################################
+  # vars defined in main playbook
+  #   dev_hostnames: ['debian', 'headscale', 'magicpi']
+  #   dev_ips: ['192.168.1.152', '192.168.1.230', '192.168.1.203']
+  #   pihole: pihole222
+####################################################
+
+    - name: Backup custom.list before editing
+      delegate_to: "{{ pihole }}"
+      # Copy the file before making changes
+      copy:
+        src: /etc/pihole/custom.list
+        dest: /etc/pihole/custom.list.edit
+        remote_src: yes
+
+    - name: Remove DNS reccord on {{pihole}}
+      delegate_to: "{{ pihole }}"
+      # Remove the old DNS record
+      lineinfile:
+        path: /etc/pihole/custom.list.edit
+        state: absent
+        regexp: '^.*{{ item.0 }}\b$'
+      loop: "{{ dev_hostnames | zip(dev_ips) | list }}"
+
+    - name: Add DNS reccord on {{pihole}}
+      delegate_to: "{{ pihole }}"
+      # Add the new DNS record
+      lineinfile:
+        path: /etc/pihole/custom.list.edit
+        line: "{{ item.1 }} {{ item.0 }}"
+        insertafter: EOF
+      loop: "{{ dev_hostnames | zip(dev_ips) | list }}"
+
+    - name: Push edited version to custom.list
+      delegate_to: "{{ pihole }}"
+      # Push the file to production 
+      copy:
+        src: /etc/pihole/custom.list.edit
+        dest: /etc/pihole/custom.list
+        remote_src: yes
+
+    - name: Remove the edited custom.list file
+      delegate_to: "{{ pihole }}"
+      # Ensure the file is deleted after copying
+      file:
+        path: /etc/pihole/custom.list.edit
+        state: absent
